@@ -1,0 +1,26 @@
+# Virtual environments
+.venv/
+venv/
+
+# Python cache & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Local environment variables & secrets (keep .env.example committed)
+.env
+.env.local
+
+# Testing cache
+.pytest_cache/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Note: data/ and models/ are intentionally NOT ignored
+# so small synthetic datasets and trained model artifacts can be committed.
+

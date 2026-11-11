@@ -1,0 +1,6 @@
+model,threshold,precision,recall,f1,f2,pr_auc,tn,fp,fn,tp
+Baseline A: Dummy (prior),0.5,0.0,0.0,0.0,0.0,0.2049,1191,0,307,0
+Baseline B: Rule (last_score < 50),0.5,0.6328,0.6287,0.6307,0.6295,0.4739,1079,112,114,193
+LogisticRegression (val-tuned),0.51,0.5438,0.8697,0.6692,0.7766,0.7301,967,224,40,267
+RandomForestClassifier (val-tuned),0.45,0.5203,0.8762,0.6529,0.7708,0.7177,943,248,38,269
+HistGradientBoostingClassifier (final saved),0.37,0.463,0.8958,0.6104,0.7547,0.7195,872,319,32,275

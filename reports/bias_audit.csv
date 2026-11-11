@@ -1,0 +1,7 @@
+group_type,group_value,n_students,actual_positives,actual_at_risk_rate,flagged_rate,recall,false_positive_rate,tn,fp,fn,tp
+gender,Female,747,159,0.2129,0.4096,0.8931,0.2789,424,164,17,142
+gender,Male,682,140,0.2053,0.3988,0.8929,0.2712,395,147,15,125
+gender,Non-binary,69,8,0.1159,0.2319,1.0,0.1311,53,8,0,8
+grade_level,8,493,102,0.2069,0.3773,0.8824,0.2455,295,96,12,90
+grade_level,9,496,106,0.2137,0.4173,0.8585,0.2974,274,116,15,91
+grade_level,10,509,99,0.1945,0.3949,0.9495,0.261,303,107,5,94

@@ -1,0 +1,15 @@
+feature,label,importance_mean,importance_std
+mean_score_last3,Average score (last 3 assessments),0.46583183996974353,0.020435080808860313
+completion_mean_last3,Average assignment completion (last 3),0.020805452513947477,0.005067116955860232
+min_score_last3,Lowest score (last 3 assessments),0.01213153349498101,0.004956520303274396
+completion_last,Most recent assignment completion (%),0.006520533062880769,0.0029539597916250944
+last_score,Most recent score,0.004916751689958169,0.0034958177444616356
+score_std_last3,Score variability (last 3),0.003191898979643722,0.0015266885213877535
+score_slope_last3,Score trend (last 3 assessments),0.0021157122987330115,0.0009786851746937226
+completion_change,Completion change (last vs. previous),0.0019426172321823346,0.0009150087468808938
+attendance_last,Most recent attendance (%),0.0010257154085240527,0.0008075657508402879
+attendance_mean_last3,Average attendance (last 3),0.0008276835549822244,0.001182856149228573
+grade_level,Grade level,-4.603747328846275e-05,5.747375952149241e-05
+attendance_change,Attendance change (last vs. previous),-0.0004876630182044354,0.0009071796909343635
+late_submission_mean_last3,Average late submission (last 3),-0.0006117149793414785,0.0010740514408239495
+late_submission_last,Most recent late submission (%),-0.0007464440329259488,0.0007609102650772878

@@ -1,0 +1,363 @@
+{
+  "test_rows": 1498,
+  "test_at_risk_rate": 0.2049,
+  "final_model": "HistGradientBoostingClassifier",
+  "frozen_threshold_from_val": 0.37,
+  "models_test_metrics": [
+    {
+      "model": "Baseline A: Dummy (prior)",
+      "threshold": 0.5,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "f2": 0.0,
+      "pr_auc": 0.2049,
+      "tn": 1191,
+      "fp": 0,
+      "fn": 307,
+      "tp": 0
+    },
+    {
+      "model": "Baseline B: Rule (last_score < 50)",
+      "threshold": 0.5,
+      "precision": 0.6328,
+      "recall": 0.6287,
+      "f1": 0.6307,
+      "f2": 0.6295,
+      "pr_auc": 0.4739,
+      "tn": 1079,
+      "fp": 112,
+      "fn": 114,
+      "tp": 193
+    },
+    {
+      "model": "LogisticRegression (val-tuned)",
+      "threshold": 0.51,
+      "precision": 0.5438,
+      "recall": 0.8697,
+      "f1": 0.6692,
+      "f2": 0.7766,
+      "pr_auc": 0.7301,
+      "tn": 967,
+      "fp": 224,
+      "fn": 40,
+      "tp": 267
+    },
+    {
+      "model": "RandomForestClassifier (val-tuned)",
+      "threshold": 0.45,
+      "precision": 0.5203,
+      "recall": 0.8762,
+      "f1": 0.6529,
+      "f2": 0.7708,
+      "pr_auc": 0.7177,
+      "tn": 943,
+      "fp": 248,
+      "fn": 38,
+      "tp": 269
+    },
+    {
+      "model": "HistGradientBoostingClassifier (final saved)",
+      "threshold": 0.37,
+      "precision": 0.463,
+      "recall": 0.8958,
+      "f1": 0.6104,
+      "f2": 0.7547,
+      "pr_auc": 0.7195,
+      "tn": 872,
+      "fp": 319,
+      "fn": 32,
+      "tp": 275
+    }
+  ],
+  "grade_level_breakdown": [
+    {
+      "grade_level": 8,
+      "n_students": 493,
+      "at_risk_count": 102,
+      "at_risk_pct": 20.69,
+      "precision": 0.4839,
+      "recall": 0.8824,
+      "f1": 0.625,
+      "pr_auc": 0.6812,
+      "tn": 295,
+      "fp": 96,
+      "fn": 12,
+      "tp": 90
+    },
+    {
+      "grade_level": 9,
+      "n_students": 496,
+      "at_risk_count": 106,
+      "at_risk_pct": 21.37,
+      "precision": 0.4396,
+      "recall": 0.8585,
+      "f1": 0.5815,
+      "pr_auc": 0.6973,
+      "tn": 274,
+      "fp": 116,
+      "fn": 15,
+      "tp": 91
+    },
+    {
+      "grade_level": 10,
+      "n_students": 509,
+      "at_risk_count": 99,
+      "at_risk_pct": 19.45,
+      "precision": 0.4677,
+      "recall": 0.9495,
+      "f1": 0.6267,
+      "pr_auc": 0.7978,
+      "tn": 303,
+      "fp": 107,
+      "fn": 5,
+      "tp": 94
+    }
+  ],
+  "gender_bias_audit_posthoc": [
+    {
+      "gender": "Female",
+      "n_students": 747,
+      "at_risk_count": 159,
+      "at_risk_pct": 21.29,
+      "precision": 0.4641,
+      "recall": 0.8931,
+      "f1": 0.6108,
+      "pr_auc": 0.7313,
+      "tn": 424,
+      "fp": 164,
+      "fn": 17,
+      "tp": 142
+    },
+    {
+      "gender": "Male",
+      "n_students": 682,
+      "at_risk_count": 140,
+      "at_risk_pct": 20.53,
+      "precision": 0.4596,
+      "recall": 0.8929,
+      "f1": 0.6068,
+      "pr_auc": 0.703,
+      "tn": 395,
+      "fp": 147,
+      "fn": 15,
+      "tp": 125
+    },
+    {
+      "gender": "Non-binary",
+      "n_students": 69,
+      "at_risk_count": 8,
+      "at_risk_pct": 11.59,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.6667,
+      "pr_auc": 0.8757,
+      "tn": 53,
+      "fp": 8,
+      "fn": 0,
+      "tp": 8
+    }
+  ],
+  "error_analysis": {
+    "counts": {
+      "tp": 275,
+      "fn": 32,
+      "fp": 319
+    },
+    "fp_examples": [
+      {
+        "student_id": "STU_0415",
+        "grade_level": 8,
+        "last_score": 20.5,
+        "mean_score_last3": 25.13,
+        "score_slope_last3": -4.6,
+        "attendance_last": 72.2,
+        "completion_last": 61.1,
+        "late_submission_last": 23.7,
+        "pred_proba": 0.98,
+        "low_next_score": 0
+      },
+      {
+        "student_id": "STU_0214",
+        "grade_level": 9,
+        "last_score": 40.0,
+        "mean_score_last3": 31.63,
+        "score_slope_last3": 6.45,
+        "attendance_last": 73.0,
+        "completion_last": 60.1,
+        "late_submission_last": 32.7,
+        "pred_proba": 0.98,
+        "low_next_score": 0
+      },
+      {
+        "student_id": "STU_0821",
+        "grade_level": 8,
+        "last_score": 30.5,
+        "mean_score_last3": 29.9,
+        "score_slope_last3": -2.7,
+        "attendance_last": 70.7,
+        "completion_last": 59.8,
+        "late_submission_last": 35.0,
+        "pred_proba": 0.97,
+        "low_next_score": 0
+      },
+      {
+        "student_id": "STU_0271",
+        "grade_level": 8,
+        "last_score": 39.6,
+        "mean_score_last3": 33.63,
+        "score_slope_last3": 3.35,
+        "attendance_last": 65.7,
+        "completion_last": 59.5,
+        "late_submission_last": 20.2,
+        "pred_proba": 0.97,
+        "low_next_score": 0
+      },
+      {
+        "student_id": "STU_1078",
+        "grade_level": 8,
+        "last_score": 21.0,
+        "mean_score_last3": 33.37,
+        "score_slope_last3": -7.4,
+        "attendance_last": 68.6,
+        "completion_last": 55.3,
+        "late_submission_last": 26.8,
+        "pred_proba": 0.97,
+        "low_next_score": 0
+      }
+    ],
+    "fn_examples": [
+      {
+        "student_id": "STU_0442",
+        "grade_level": 8,
+        "last_score": 67.3,
+        "mean_score_last3": 74.97,
+        "score_slope_last3": -10.35,
+        "attendance_last": 100.0,
+        "completion_last": 98.5,
+        "late_submission_last": 0.0,
+        "pred_proba": 0.02,
+        "low_next_score": 1
+      },
+      {
+        "student_id": "STU_0373",
+        "grade_level": 9,
+        "last_score": 69.4,
+        "mean_score_last3": 75.8,
+        "score_slope_last3": -2.45,
+        "attendance_last": 90.6,
+        "completion_last": 73.3,
+        "late_submission_last": 14.1,
+        "pred_proba": 0.09,
+        "low_next_score": 1
+      },
+      {
+        "student_id": "STU_0132",
+        "grade_level": 9,
+        "last_score": 59.0,
+        "mean_score_last3": 59.63,
+        "score_slope_last3": -5.15,
+        "attendance_last": 100.0,
+        "completion_last": 91.4,
+        "late_submission_last": 0.0,
+        "pred_proba": 0.1,
+        "low_next_score": 1
+      },
+      {
+        "student_id": "STU_0862",
+        "grade_level": 10,
+        "last_score": 55.9,
+        "mean_score_last3": 67.63,
+        "score_slope_last3": -6.4,
+        "attendance_last": 91.0,
+        "completion_last": 80.4,
+        "late_submission_last": 6.5,
+        "pred_proba": 0.14,
+        "low_next_score": 1
+      },
+      {
+        "student_id": "STU_0033",
+        "grade_level": 8,
+        "last_score": 63.0,
+        "mean_score_last3": 64.63,
+        "score_slope_last3": -1.05,
+        "attendance_last": 96.6,
+        "completion_last": 93.6,
+        "late_submission_last": 0.0,
+        "pred_proba": 0.17,
+        "low_next_score": 1
+      }
+    ],
+    "fn_vs_tp_feature_means": [
+      {
+        "feature": "last_score",
+        "fn_mean": 64.09,
+        "tp_mean": 43.28,
+        "diff_fn_minus_tp": 20.81
+      },
+      {
+        "feature": "mean_score_last3",
+        "fn_mean": 65.55,
+        "tp_mean": 44.55,
+        "diff_fn_minus_tp": 21.0
+      },
+      {
+        "feature": "min_score_last3",
+        "fn_mean": 58.31,
+        "tp_mean": 36.89,
+        "diff_fn_minus_tp": 21.42
+      },
+      {
+        "feature": "score_slope_last3",
+        "fn_mean": -2.38,
+        "tp_mean": -1.72,
+        "diff_fn_minus_tp": -0.66
+      },
+      {
+        "feature": "attendance_last",
+        "fn_mean": 85.1,
+        "tp_mean": 76.33,
+        "diff_fn_minus_tp": 8.77
+      },
+      {
+        "feature": "attendance_mean_last3",
+        "fn_mean": 84.92,
+        "tp_mean": 76.85,
+        "diff_fn_minus_tp": 8.07
+      },
+      {
+        "feature": "completion_last",
+        "fn_mean": 78.74,
+        "tp_mean": 67.72,
+        "diff_fn_minus_tp": 11.02
+      },
+      {
+        "feature": "completion_mean_last3",
+        "fn_mean": 79.34,
+        "tp_mean": 67.8,
+        "diff_fn_minus_tp": 11.54
+      },
+      {
+        "feature": "late_submission_last",
+        "fn_mean": 14.98,
+        "tp_mean": 21.35,
+        "diff_fn_minus_tp": -6.37
+      },
+      {
+        "feature": "pred_proba",
+        "fn_mean": 0.23,
+        "tp_mean": 0.81,
+        "diff_fn_minus_tp": -0.58
+      }
+    ],
+    "school_interpretation": {
+      "false_positive": "A student who would actually score >= 50 on the next assessment is flagged as needing support. For a school, this means offering optional extra help (such as a quick check-in or study resource) to a student who did not strictly need it\u2014low cost.",
+      "false_negative": "A student who ends up scoring < 50 on the next assessment is NOT flagged. For a school, a struggling student is overlooked and misses early intervention\u2014high cost."
+    }
+  },
+  "saved_figures": {
+    "confusion_matrix": "D:\\student-risk-prediction\\reports\\figures\\test_confusion_matrix.png",
+    "precision_recall_curve": "D:\\student-risk-prediction\\reports\\figures\\test_precision_recall_curve.png",
+    "model_comparison": "D:\\student-risk-prediction\\reports\\figures\\test_model_comparison.png"
+  }
+}

@@ -1,0 +1,309 @@
+{
+  "model_family": "HistGradientBoostingClassifier",
+  "best_params": {
+    "learning_rate": 0.03,
+    "max_depth": 3,
+    "min_samples_leaf": 20,
+    "class_weight": "balanced"
+  },
+  "feature_columns": [
+    "last_score",
+    "mean_score_last3",
+    "score_std_last3",
+    "min_score_last3",
+    "score_slope_last3",
+    "attendance_last",
+    "attendance_mean_last3",
+    "attendance_change",
+    "completion_last",
+    "completion_mean_last3",
+    "completion_change",
+    "late_submission_last",
+    "late_submission_mean_last3",
+    "grade_level"
+  ],
+  "target_column": "low_next_score",
+  "decision_threshold": 0.37,
+  "risk_band_cutoffs": {
+    "low_max": 0.37,
+    "medium_max": 0.76
+  },
+  "risk_band_validation_summary": {
+    "Low": {
+      "count": 861,
+      "share_pct": 57.55,
+      "observed_at_risk_rate": 0.0197
+    },
+    "Medium": {
+      "count": 345,
+      "share_pct": 23.06,
+      "observed_at_risk_rate": 0.2435
+    },
+    "High": {
+      "count": 290,
+      "share_pct": 19.39,
+      "observed_at_risk_rate": 0.7069
+    }
+  },
+  "seed": 42,
+  "sklearn_version": "1.9.1",
+  "training_date_utc": "2026-11-11T16:46:47.638564+00:00",
+  "selection_criterion": "highest validation PR-AUC; threshold tuned on validation for max F2",
+  "validation_metrics_winner_tuned": {
+    "precision": 0.45511811023622045,
+    "recall": 0.9444444444444444,
+    "f1": 0.614240170031881,
+    "f2": 0.7772996234534696,
+    "pr_auc": 0.7795639333514172,
+    "confusion_matrix": [
+      [
+        844,
+        346
+      ],
+      [
+        17,
+        289
+      ]
+    ]
+  },
+  "validation_comparison_default_threshold": [
+    {
+      "name": "Baseline A: Dummy (prior)",
+      "params": {
+        "strategy": "prior"
+      },
+      "threshold": 0.5,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "f2": 0.0,
+      "pr_auc": 0.20454545454545456,
+      "confusion_matrix": [
+        [
+          1190,
+          0
+        ],
+        [
+          306,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "Baseline B: Rule (last_score < 50)",
+      "params": {
+        "cutoff": 50
+      },
+      "threshold": 0.5,
+      "precision": 0.6111111111111112,
+      "recall": 0.6470588235294118,
+      "f1": 0.6285714285714286,
+      "f2": 0.6395348837209303,
+      "pr_auc": 0.4676173499702912,
+      "confusion_matrix": [
+        [
+          1064,
+          126
+        ],
+        [
+          108,
+          198
+        ]
+      ]
+    },
+    {
+      "name": "LogisticRegression (best)",
+      "params": {
+        "C": 0.1
+      },
+      "threshold": 0.5,
+      "precision": 0.5258126195028681,
+      "recall": 0.8986928104575164,
+      "f1": 0.6634499396863691,
+      "f2": 0.7870635374928449,
+      "pr_auc": 0.7781535952459142,
+      "confusion_matrix": [
+        [
+          942,
+          248
+        ],
+        [
+          31,
+          275
+        ]
+      ]
+    },
+    {
+      "name": "RandomForestClassifier (best)",
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 10,
+        "min_samples_leaf": 15
+      },
+      "threshold": 0.5,
+      "precision": 0.5318725099601593,
+      "recall": 0.8725490196078431,
+      "f1": 0.6608910891089109,
+      "f2": 0.7734646581691773,
+      "pr_auc": 0.7790929745954732,
+      "confusion_matrix": [
+        [
+          955,
+          235
+        ],
+        [
+          39,
+          267
+        ]
+      ]
+    },
+    {
+      "name": "HistGradientBoostingClassifier (best)",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 3,
+        "min_samples_leaf": 20,
+        "class_weight": "balanced"
+      },
+      "threshold": 0.5,
+      "precision": 0.5233463035019456,
+      "recall": 0.8790849673202614,
+      "f1": 0.6560975609756098,
+      "f2": 0.7738780207134638,
+      "pr_auc": 0.7795639333514172,
+      "confusion_matrix": [
+        [
+          945,
+          245
+        ],
+        [
+          37,
+          269
+        ]
+      ]
+    }
+  ],
+  "validation_comparison_tuned_f2": [
+    {
+      "name": "Baseline A: Dummy (prior)",
+      "params": {
+        "strategy": "prior"
+      },
+      "threshold": 0.5,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "f2": 0.0,
+      "pr_auc": 0.20454545454545456,
+      "confusion_matrix": [
+        [
+          1190,
+          0
+        ],
+        [
+          306,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "Baseline B: Rule (last_score < 50)",
+      "params": {
+        "cutoff": 50
+      },
+      "threshold": 0.5,
+      "precision": 0.6111111111111112,
+      "recall": 0.6470588235294118,
+      "f1": 0.6285714285714286,
+      "f2": 0.6395348837209303,
+      "pr_auc": 0.4676173499702912,
+      "confusion_matrix": [
+        [
+          1064,
+          126
+        ],
+        [
+          108,
+          198
+        ]
+      ]
+    },
+    {
+      "family": "LogisticRegression",
+      "name": "LogisticRegression (tuned)",
+      "params": {
+        "C": 0.1
+      },
+      "tuned_f2_threshold": 0.51,
+      "threshold": 0.51,
+      "precision": 0.5320388349514563,
+      "recall": 0.8954248366013072,
+      "f1": 0.6674786845310596,
+      "f2": 0.7878090856814262,
+      "pr_auc": 0.7781535952459142,
+      "confusion_matrix": [
+        [
+          949,
+          241
+        ],
+        [
+          32,
+          274
+        ]
+      ]
+    },
+    {
+      "family": "RandomForestClassifier",
+      "name": "RandomForestClassifier (tuned)",
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 10,
+        "min_samples_leaf": 15
+      },
+      "tuned_f2_threshold": 0.45,
+      "threshold": 0.45,
+      "precision": 0.5063752276867031,
+      "recall": 0.9084967320261438,
+      "f1": 0.6502923976608187,
+      "f2": 0.7839819514946419,
+      "pr_auc": 0.7790929745954732,
+      "confusion_matrix": [
+        [
+          919,
+          271
+        ],
+        [
+          28,
+          278
+        ]
+      ]
+    },
+    {
+      "family": "HistGradientBoostingClassifier",
+      "name": "HistGradientBoostingClassifier (tuned)",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 3,
+        "min_samples_leaf": 20,
+        "class_weight": "balanced"
+      },
+      "tuned_f2_threshold": 0.37,
+      "threshold": 0.37,
+      "precision": 0.45511811023622045,
+      "recall": 0.9444444444444444,
+      "f1": 0.614240170031881,
+      "f2": 0.7772996234534696,
+      "pr_auc": 0.7795639333514172,
+      "confusion_matrix": [
+        [
+          844,
+          346
+        ],
+        [
+          17,
+          289
+        ]
+      ]
+    }
+  ]
+}
