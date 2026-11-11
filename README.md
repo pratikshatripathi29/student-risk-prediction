@@ -1,136 +1,145 @@
 # Student Performance & At-Risk Prediction
 
-An educational, leak-free Machine Learning internship project that flags students who may benefit from **optional early academic support** before their next assessment (~2–3 weeks ahead).
+An end-to-end machine learning early-warning system that estimates whether a student is likely to score below **50/100** on their next assessment (`low_next_score`), built strictly as an **advisory decision-support tool** for teachers and school counselors.
 
-> **Advisory Only:** Model outputs exist solely to help teachers and mentors offer timely tutoring, check-ins, or study resources. This tool must **never** trigger automated punishment, grading penalties, or admission decisions. Protected/sensitive attributes (such as `gender`) are strictly excluded from model features and kept only for post-hoc fairness auditing.
-
----
-
-## Problem Summary
-
-- **Prediction unit:** One student right after assessment checkpoint `k` (`k = 3..7`)
-- **Target (`low_next_score`):** `1` if assessment `k + 1` score is `< 50` (out of `100`), else `0`
-- **Primary priority:** **Recall** (missing a struggling student is costlier than offering optional help), tracked alongside **Precision**, **F1**, **F2**, **Confusion Matrix**, and **PR-AUC**
-- **Reproducibility:** `SEED = 42` stored in [`src/config.py`](src/config.py)
-- **Anti-leakage design:** Features at checkpoint `k` use only assessments `<= k`, splits are chronological (`train: k=3,4,5`, `val: k=6`, `test: k=7`), preprocessing (`SimpleImputer`, `StandardScaler`) is fitted inside `scikit-learn` `Pipeline`s on training data only, and `test.csv` is evaluated once.
-
-See [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md) and [`docs/problem_definition.md`](docs/problem_definition.md) for the full project rules and problem specification.
+> **Important Scope & Ethics Notice**  
+> This project is for **proactive academic support only** (such as check-ins, tutoring, or counselor outreach). It must **never** be used for automated grading, disciplinary action, or admission/placement decisions. Every flagged result requires human review by an educator or counselor.
 
 ---
 
-## Project Structure
+## Live Demo
+
+- **Streamlit App (Placeholder):** [https://your-app-name.streamlit.app](https://your-app-name.streamlit.app) *(replace with your deployed Streamlit Community Cloud URL once published)*
+
+To preview locally, run `streamlit run app/streamlit_app.py` from the repository root after following the setup steps below.
+
+---
+
+## Project Summary
+
+- **Goal:** At assessment checkpoint `k` (`k = 3..7`), predict whether a student will score `< 50` on assessment `k + 1` using only observable assessment, attendance, assignment completion, and late-submission records up to checkpoint `k`.
+- **Leakage Prevention:** Features use strictly historical data (`1..k`), data splits are chronological (`Train: k = 3,4,5`, `Validation: k = 6`, `Test: k = 7`), imputation (`SimpleImputer(strategy="median")`) and scaling fit only inside the `scikit-learn` `Pipeline` on training data, and `test.csv` is evaluated once after threshold and model selection freeze.
+- **Fairness & Privacy Guardrails:** Synthetic `gender` is excluded from model features (`FEATURE_COLUMNS`) and used exclusively in post-hoc bias auditing (`src/audit.py`).
+- **Model Selection & Thresholding:** Compares a prior-class dummy baseline and a simple heuristic (`last_score < 50`) against `LogisticRegression`, `RandomForestClassifier`, and `HistGradientBoostingClassifier`. The final selected model (`HistGradientBoostingClassifier`) uses a validation-tuned threshold (`0.37`) maximizing recall-weighted **F2**, paired with **Low / Medium / High** risk bands (`< 0.37`, `0.37–0.76`, `>= 0.76`).
+- **Explainability & Interactive UI:** Provides global permutation importance (`src/explain.py`), per-student median-substitution risk drivers, and a two-tab Streamlit web app (`app/streamlit_app.py`) using identical feature logic (`build_features_from_inputs`).
+
+---
+
+## Folder Structure
 
 ```text
 student-risk-prediction/
+├── .env.example                       # Placeholder environment variables template
+├── .gitignore                         # Ignores .venv, caches, checkpoints, .env (keeps data/ & models/)
+├── PROJECT_CONTEXT.md                 # Project engineering & ethics guardrails
+├── README.md                          # Project overview, setup, commands, and limitations
+├── requirements.txt                   # Python dependencies
 ├── app/
-│   └── streamlit_app.py       # Advisory Streamlit app (Single Student Check & Cohort Overview)
+│   └── streamlit_app.py               # Two-tab advisory Streamlit application
 ├── data/
-│   ├── raw/                   # Raw synthetic CSV generated with seed 42
-│   └── processed/             # Checkpoint feature dataset & train/val/test CSV splits
+│   ├── raw/
+│   │   └── students_raw.csv           # Synthetic longitudinal records (seed=42)
+│   └── processed/
+│       ├── checkpoint_dataset.csv     # Engineered student-checkpoint dataset (k=3..7)
+│       ├── train.csv                  # Chronological training split (k=3,4,5)
+│       ├── val.csv                    # Chronological validation split (k=6)
+│       └── test.csv                   # Chronological held-out test split (k=7)
 ├── docs/
-│   └── problem_definition.md  # Formal problem definition, metrics, and ethical limits
+│   └── problem_definition.md          # Business objective, metrics, and out-of-scope boundaries
 ├── models/
-│   ├── model.joblib           # Saved winning scikit-learn Pipeline artifact
-│   └── metadata.json          # Feature schema, F2 threshold, risk-band cutoffs, validation metrics
+│   ├── model.joblib                   # Saved final scikit-learn Pipeline
+│   └── metadata.json                  # Features, threshold, risk bands, seed, and validation metrics
 ├── notebooks/
-│   └── 01_eda.ipynb           # Executed EDA notebook with leakage thinking & charts
+│   └── 01_eda.ipynb                   # Exploratory data analysis, quality checks, and leakage notes
 ├── reports/
-│   ├── figures/               # EDA, evaluation, and feature-importance PNG charts
-│   ├── bias_audit.csv         # Post-hoc fairness audit across gender and grade_level
-│   ├── feature_importance.csv # Validation permutation importance table
-│   ├── metrics.json           # Held-out test evaluation, breakdowns, and error analysis
-│   └── metrics_table.csv      # Held-out test model comparison table
+│   ├── TECHNICAL_REPORT.md            # Detailed technical report with [WRITE IN YOUR OWN WORDS] prompts
+│   ├── metrics.json                   # Held-out test metrics, error analysis, and subgroup breakdowns
+│   ├── metrics_table.csv              # Model comparison summary table on the test set
+│   ├── feature_importance.csv         # Validation permutation importance scores
+│   ├── bias_audit.csv                 # Test-set subgroup parity audit by gender and grade_level
+│   └── figures/                       # Saved EDA, evaluation, and explainability PNG charts
 ├── src/
-│   ├── config.py              # Central paths, SEED=42, and problem constants
-│   ├── data_generator.py      # Reproducible synthetic longitudinal dataset generator
-│   ├── data_quality.py        # Audit & cleaning (no imputation here)
-│   ├── features.py            # Shared leak-free feature builder for training & app
-│   ├── split.py               # Chronological split by checkpoint (train/val/test)
-│   ├── train.py               # Baselines, hyperparameter search on val, F2 threshold & bands
-│   ├── evaluate.py            # One-time held-out test evaluation, plots, error analysis
-│   ├── explain.py             # Global permutation importance & local median-perturbation explanations
-│   ├── audit.py               # Post-hoc subgroup fairness audit on test.csv
-│   └── predict.py             # Live inference helper loading models/model.joblib
-├── tests/                     # Automated pytest suite
-├── .env.example               # Placeholder environment variables only (no secrets)
-├── .gitignore
-├── PROJECT_CONTEXT.md
-└── requirements.txt
+│   ├── __init__.py
+│   ├── config.py                      # Central constants (SEED=42, paths, thresholds)
+│   ├── data_generator.py              # Reproducible synthetic student data generator
+│   ├── data_quality.py                # Quality diagnostics and cleaning (dedupe + invalid -> NaN)
+│   ├── features.py                    # Leakage-safe checkpoint feature engineering + app input helper
+│   ├── split.py                       # Chronological train/val/test split builder
+│   ├── train.py                       # Pipeline training, validation tuning, and model serialization
+│   ├── evaluate.py                    # Single-pass test evaluation, error analysis, and charts
+│   ├── explain.py                     # Global permutation importance & local median-baseline explanation
+│   ├── audit.py                       # Post-hoc fairness audit across synthetic gender and grade_level
+│   └── predict.py                     # Cached model loader & end-to-end prediction helper
+└── tests/
+    ├── __init__.py
+    ├── test_data.py                   # Reproducibility & cleaning tests
+    ├── test_features.py               # Anti-leakage, column exclusion, and target-shift tests
+    ├── test_split.py                  # Strict chronological split ordering test
+    └── test_predict.py                # Artifact loading, missing values, and band-boundary tests
 ```
 
 ---
 
-## Setup Instructions
+## Setup
 
-1. **Create and activate a Python 3.11 virtual environment:**
+- **Python Version:** Python `3.11` (developed and tested on Python `3.11.15`)
 
-   ```powershell
-   # Using uv (recommended if installed):
-   uv venv --python 3.11 .venv
+### 1. Create and Activate a Virtual Environment
 
-   # Or using Python 3.11 directly:
-   python -m venv .venv
+**Windows (PowerShell):**
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
 
-   # Activate on Windows PowerShell:
-   .venv\Scripts\Activate.ps1
-   ```
+**macOS / Linux:**
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+```
 
-2. **Install dependencies:**
+### 2. Install Dependencies
 
-   ```powershell
-   pip install -r requirements.txt
-   ```
+```bash
+pip install -r requirements.txt
+```
+
+*(Optional)* Inspect `.env.example` if configuring environment variables locally; no external API keys or secrets are required to run the pipeline or app.
 
 ---
 
-## Run the End-to-End Pipeline
+## Reproduction Commands
 
-Run each step from the repository root (`d:\student-risk-prediction`):
+Run the following commands **in exact order** from the repository root (`student-risk-prediction/`):
 
-```powershell
-# 1. Generate synthetic raw data (1,500 students x 8 assessments, seed=42)
+```bash
 python -m src.data_generator
-
-# 2. Check data quality before & after cleaning (no imputation yet)
-python -m src.data_quality
-
-# 3. Build leak-free checkpoint features & chronological train/val/test splits
 python -m src.split
-
-# 4. Train baselines + candidate Pipelines, tune on val.csv, save models/model.joblib
 python -m src.train
-
-# 5. Run one-time held-out evaluation on test.csv, save metrics & figures
 python -m src.evaluate
-
-# 6. Compute global permutation importance (val.csv) & test local explanation
-python -m src.explain
-
-# 7. Run post-hoc fairness audit on test.csv (gender & grade_level)
 python -m src.audit
-
-# 8. Optional CLI inference demo
-python -m src.predict
-```
-
----
-
-## Launch the Advisory Streamlit App
-
-```powershell
+pytest
 streamlit run app/streamlit_app.py
 ```
 
-The app provides two tabs:
-- **Single Student Check:** Enter the last 3 assessments (`k-2`, `k-1`, `k`) and grade level to see predicted risk probability, risk band (`Low` / `Medium` / `High`), top 3 risk-increasing and top 3 risk-reducing factors, and non-punitive support suggestions.
-- **Cohort & Model Overview:** Inspect the saved test metrics table, confusion matrix, precision-recall curve, model comparison chart, global feature importance, and subgroup bias audit.
+*(Optional)* To regenerate the global permutation-importance artifact and chart (`reports/feature_importance.csv` and `reports/figures/feature_importance.png`) or execute the EDA notebook, run `python -m src.explain` or open `notebooks/01_eda.ipynb`.
 
 ---
 
-## Held-Out Test Results Summary (`test.csv`, `k = 7`, `1,498` students)
+## Dataset Note (100% Synthetic Data)
 
-- **Selected Model:** `HistGradientBoostingClassifier` (`class_weight="balanced"`, validation F2-tuned threshold `= 0.37`)
-- **Test Performance:** Recall **`0.8958`** (`275` of `307` struggling students caught), Precision **`0.4630`**, F1 **`0.6104`**, F2 **`0.7547`**, PR-AUC **`0.7195`** (`TN=872, FP=319, FN=32, TP=275`)
-- **Baselines on Test:** `DummyClassifier(strategy="prior")` (`Recall=0.0000`, `PR-AUC=0.2049`); simple `last_score < 50` rule (`Recall=0.6287`, `Precision=0.6328`, `PR-AUC=0.4739`)
-- **Post-hoc Gender Parity (`gender` excluded from features):** Female (`Recall=0.8931`, `FPR=0.2789`) vs. Male (`Recall=0.8929`, `FPR=0.2712`)
+- **No Real Student Data:** Every record in `data/raw/students_raw.csv` is **100% synthetic** (`N_STUDENTS = 1500`, `N_ASSESSMENTS = 8`, `SEED = 42`). No real students, schools, or personally identifiable information are used.
+- **How It Is Generated (`src/data_generator.py`):**
+  - Each student is assigned `grade_level` (`8`, `9`, or `10`), a synthetic `gender` label (`Female`, `Male`, or `Non-binary`, reserved strictly for post-hoc bias auditing), and latent student attributes (**ability** and **effort**) plus slow longitudinal improvement/decline trends and random per-assessment noise.
+  - Latent effort and ability drive correlated trajectories across `score` (`0–100`), `attendance_pct`, `assignment_completion_pct`, and `late_submission_pct`, calibrated so roughly `20%` of assessments fall below `50` (class imbalance).
+  - Realistic data-quality defects are intentionally injected: ~`3%` missing `attendance_pct`, ~`2%` missing `assignment_completion_pct`, a small number of out-of-range anomalies (negative scores and attendance `> 100`), and ~`0.5%` duplicate rows (`60` duplicates added to `12,000` base rows = `12,060` raw rows).
 
+---
+
+## Known Limitations
+
+1. **Synthetic Data Simplifications:** Real classroom dynamics involve unobserved shocks (illness, family emergencies, curriculum shifts, teacher grading variance) that a latent ability/effort simulator cannot fully replicate. Metrics measured here (`Recall = 89.58%`, `PR-AUC = 0.7195` on the synthetic test set) will not transfer automatically to a real school without retraining and recalibration on local historical records.
+2. **Recall-First False Positive Trade-Off:** Tuning the threshold (`0.37`) to optimize **F2** catches most struggling students (`275 / 307` in test) but flags `319` false positives (`Precision = 46.30%`), meaning supportive resources must remain low-stakes and counselor-verified so students are not mislabeled or overwhelmed.
+3. **Short Trajectory Cold-Start & Blind Spots:** Predictions start at checkpoint `k = 3` (requiring prior history) and rely heavily on recent scores (`mean_score_last3` permutation importance = `0.4658`), so sudden unannounced drops among previously high-scoring students (`STU_0442`-style false negatives) remain hard to foresee from quantitative logs alone.
+4. **Small Subgroup Statistical Variance:** In the synthetic bias audit (`src/audit.py`), the `Non-binary` subgroup contains only `n = 69` test rows, making subgroup parity rates (`flagged = 23.19%`, `recall = 100.0%`, `FPR = 13.11%`) noisy and sensitive to small counts.
+5. **Advisory Boundary Only:** Predictions reflect statistical risk correlations, not causal diagnoses of *why* a student is struggling; educators must combine model signals with qualitative context.

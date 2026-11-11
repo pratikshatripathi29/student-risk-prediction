@@ -92,12 +92,19 @@ def _safe_linear_slope(values: Sequence[float]) -> float:
     return float(np.sum(x_centered * y_centered) / denominator)
 
 
+def _to_float(value: float | int | None) -> float:
+    """Convert a scalar (including None or NaN) safely to float/NaN."""
+    if value is None or pd.isna(value):
+        return float("nan")
+    return float(value)
+
+
 def _safe_change(values: Sequence[float]) -> float:
     """Compute latest value minus immediately preceding value (k minus k-1)."""
     if len(values) < 2:
         return float("nan")
-    prev_val = float(values[-2])
-    last_val = float(values[-1])
+    prev_val = _to_float(values[-2])
+    last_val = _to_float(values[-1])
     if np.isnan(prev_val) or np.isnan(last_val):
         return float("nan")
     return last_val - prev_val
@@ -115,18 +122,18 @@ def _compute_checkpoint_features(
     All sequences must be ordered chronologically: [k-2, k-1, k].
     """
     return {
-        "last_score": float(scores_last3[-1]),
+        "last_score": _to_float(scores_last3[-1]),
         "mean_score_last3": _safe_mean(scores_last3),
         "score_std_last3": _safe_std(scores_last3),
         "min_score_last3": _safe_min(scores_last3),
         "score_slope_last3": _safe_linear_slope(scores_last3),
-        "attendance_last": float(attendance_last3[-1]),
+        "attendance_last": _to_float(attendance_last3[-1]),
         "attendance_mean_last3": _safe_mean(attendance_last3),
         "attendance_change": _safe_change(attendance_last3),
-        "completion_last": float(completion_last3[-1]),
+        "completion_last": _to_float(completion_last3[-1]),
         "completion_mean_last3": _safe_mean(completion_last3),
         "completion_change": _safe_change(completion_last3),
-        "late_submission_last": float(late_submission_last3[-1]),
+        "late_submission_last": _to_float(late_submission_last3[-1]),
         "late_submission_mean_last3": _safe_mean(late_submission_last3),
         "grade_level": int(grade_level),
     }

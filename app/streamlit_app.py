@@ -1,277 +1,299 @@
 """Advisory Student Support Tool built with Streamlit.
 
-Rules enforced from PROJECT_CONTEXT.md:
+Deployment & rules enforced from PROJECT_CONTEXT.md:
+- Adds the repository root to `sys.path` at the very top so the app runs cleanly
+  both locally (`streamlit run app/streamlit_app.py`) and on Streamlit Community Cloud.
 - Loads the saved scikit-learn Pipeline (`models/model.joblib`) and metadata
-  (`models/metadata.json`) via `@st.cache_resource`—never hard-codes predictions.
-- Uses `build_features_from_inputs` from `src/features.py` so feature logic is
-  identical to training.
-- Uses `explain_prediction` from `src/explain.py` to show plain-English risk
-  and protective drivers.
-- Strictly advisory only: never displays sensitive/protected attributes (no
-  gender input) and never automates punishment, grading, or admissions.
+  (`models/metadata.json`) via `@st.cache_resource` wrapping `src.predict.load_model()`.
+- Real predictions only: uses `src.predict.predict_risk()` (which calls
+  `build_features_from_inputs()` from `src/features.py` and `explain_prediction()`
+  from `src/explain.py`). Nothing is hard-coded.
+- Strictly advisory: displays a clear human-review banner, allows blank inputs to
+  test missing-data imputation, and validates 0-100 ranges.
 
-Run from the project root:
+Run from the repo root:
     streamlit run app/streamlit_app.py
 """
 
+import json
 from pathlib import Path
 import sys
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from sklearn.pipeline import Pipeline
 import streamlit as st
 
-# Ensure project root is importable regardless of where `streamlit run` is invoked.
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# Add repo root to sys.path so `from src...` works on Streamlit Community Cloud and locally.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-from src.config import (
-    BIAS_AUDIT_PATH,
-    FIGURES_DIR,
-    METRICS_TABLE_PATH,
-    MODEL_METADATA_PATH,
-    MODEL_PATH,
-)
-from src.explain import explain_prediction
-from src.features import build_features_from_inputs
-from src.predict import assign_risk_band, load_artifacts
+from src.config import FIGURES_DIR, METRICS_PATH, MODEL_METADATA_PATH, MODEL_PATH
+from src.predict import load_model, predict_risk
 
 
 @st.cache_resource
-def get_model_and_metadata() -> tuple[Pipeline, dict[str, Any]]:
-    """Load and cache the saved model Pipeline and metadata once per app session."""
-    return load_artifacts(model_path=MODEL_PATH, metadata_path=MODEL_METADATA_PATH)
+def get_cached_model() -> tuple[Pipeline, dict[str, Any]]:
+    """Load and cache the model artifact once across Streamlit reruns."""
+    return load_model(model_path=MODEL_PATH, metadata_path=MODEL_METADATA_PATH)
 
 
-def suggest_supportive_actions(
-    risk_band: str,
-    increasing_drivers: list[dict[str, Any]],
-) -> list[str]:
-    """Generate constructive, non-punitive academic support ideas for educators."""
-    actions: list[str] = []
+def parse_optional_percentage(raw_value: str, field_label: str) -> tuple[float, str | None]:
+    """Parse an editable text input into a 0-100 float or NaN when left blank.
 
+    Returns (parsed_float_or_nan, error_message_or_none).
+    """
+    text = raw_value.strip()
+    if text == "":
+        return float("nan"), None
+
+    try:
+        numeric = float(text)
+    except ValueError:
+        return float("nan"), f"**{field_label}** must be a number between 0 and 100 (or left blank)."
+
+    if np.isnan(numeric) or np.isinf(numeric) or not (0.0 <= numeric <= 100.0):
+        return float("nan"), f"**{field_label}** must be between 0 and 100 (got `{raw_value}`)."
+
+    return numeric, None
+
+
+def render_risk_band_badge(risk_band: str) -> None:
+    """Display the Low / Medium / High risk band with clear color coding."""
     if risk_band == "High":
-        actions.append(
-            "Schedule a supportive 1-on-1 check-in within the next week to understand "
-            "any academic or personal roadblocks."
-        )
-        actions.append(
-            "Offer targeted tutoring, guided office hours, or small-group review before the next assessment."
-        )
+        st.error("**Risk Band: HIGH** — Priority optional support recommended.")
     elif risk_band == "Medium":
-        actions.append(
-            "Send an encouraging check-in note and invite the student to optional review sessions or study hours."
-        )
-        actions.append(
-            "Check progress midway through the next 2-3 week unit rather than waiting until the next exam."
-        )
+        st.warning("**Risk Band: MEDIUM** — Check-in and optional support recommended.")
     else:
-        actions.append(
-            "Continue routine classroom encouragement and standard check-ins—current indicators look steady."
-        )
-
-    driver_features = {d["feature"] for d in increasing_drivers}
-    if driver_features & {"completion_last", "completion_mean_last3", "completion_change"}:
-        actions.append(
-            "Assignment completion is lagging: help the student break upcoming coursework into smaller milestones."
-        )
-    if driver_features & {"attendance_last", "attendance_mean_last3", "attendance_change"}:
-        actions.append(
-            "Recent attendance dipped: share missed class notes/recordings and check whether support is needed."
-        )
-    if driver_features & {"late_submission_last", "late_submission_mean_last3"}:
-        actions.append(
-            "Late submissions are elevated: review time-management strategies and clarify assignment deadlines early."
-        )
-    if driver_features & {"last_score", "mean_score_last3", "min_score_last3", "score_slope_last3"}:
-        actions.append(
-            "Recent scores suggest concept gaps: review questions missed on the last assessment together."
-        )
-
-    return actions
+        st.success("**Risk Band: LOW** — Continue routine classroom support.")
 
 
-def render_single_student_tab(model: Pipeline, metadata: dict[str, Any]) -> None:
-    """Render interactive last-3 assessment inputs, live risk estimate, and explanations."""
-    st.subheader("Single Student Check (Checkpoint k -> Next Assessment k+1)")
-    st.write(
-        "Enter the student's **last 3 chronological assessments** (`k-2`, `k-1`, `k` [most recent]) "
-        "and grade level to estimate the advisory probability of scoring below `50/100` on the next assessment."
+def render_prediction_tab(model_bundle: tuple[Pipeline, dict[str, Any]]) -> None:
+    """Render student inputs (allowing blanks & 0-100 validation) and advisory output."""
+    st.subheader("Check a Student After Assessment k (Predicting Next Assessment k+1)")
+    st.caption(
+        "Enter the student's last 3 assessments in chronological order (`k-2` oldest, `k-1` previous, `k` most recent). "
+        "Leave any box **blank** to test how the Pipeline's training-median imputer handles missing data."
     )
 
     grade_level = st.selectbox("Grade Level", options=[8, 9, 10], index=1)
 
-    col_old, col_prev, col_last = st.columns(3)
-
-    with col_old:
+    col1, col2, col3 = st.columns(3)
+    with col1:
         st.markdown("**Assessment `k-2` (Oldest of 3)**")
-        score_1 = st.slider("Score (k-2)", 0.0, 100.0, 66.0, 0.5, key="score_1")
-        att_1 = st.slider("Attendance % (k-2)", 0.0, 100.0, 86.0, 0.5, key="att_1")
-        comp_1 = st.slider("Assignment Completion % (k-2)", 0.0, 100.0, 82.0, 0.5, key="comp_1")
-        late_1 = st.slider("Late Submissions % (k-2)", 0.0, 100.0, 12.0, 0.5, key="late_1")
+        s1_raw = st.text_input("Score (k-2)", value="64", placeholder="0-100 or blank", key="s1")
+        a1_raw = st.text_input("Attendance % (k-2)", value="86", placeholder="0-100 or blank", key="a1")
+        c1_raw = st.text_input("Assignment Completion % (k-2)", value="80", placeholder="0-100 or blank", key="c1")
+        l1_raw = st.text_input("Late Submission % (k-2)", value="12", placeholder="0-100 or blank", key="l1")
 
-    with col_prev:
+    with col2:
         st.markdown("**Assessment `k-1` (Previous)**")
-        score_2 = st.slider("Score (k-1)", 0.0, 100.0, 58.0, 0.5, key="score_2")
-        att_2 = st.slider("Attendance % (k-1)", 0.0, 100.0, 82.0, 0.5, key="att_2")
-        comp_2 = st.slider("Assignment Completion % (k-1)", 0.0, 100.0, 75.0, 0.5, key="comp_2")
-        late_2 = st.slider("Late Submissions % (k-1)", 0.0, 100.0, 18.0, 0.5, key="late_2")
+        s2_raw = st.text_input("Score (k-1)", value="55", placeholder="0-100 or blank", key="s2")
+        a2_raw = st.text_input("Attendance % (k-1)", value="79", placeholder="0-100 or blank", key="a2")
+        c2_raw = st.text_input("Assignment Completion % (k-1)", value="71", placeholder="0-100 or blank", key="c2")
+        l2_raw = st.text_input("Late Submission % (k-1)", value="20", placeholder="0-100 or blank", key="l2")
 
-    with col_last:
+    with col3:
         st.markdown("**Assessment `k` (Most Recent)**")
-        score_3 = st.slider("Score (k)", 0.0, 100.0, 48.0, 0.5, key="score_3")
-        att_3 = st.slider("Attendance % (k)", 0.0, 100.0, 76.0, 0.5, key="att_3")
-        comp_3 = st.slider("Assignment Completion % (k)", 0.0, 100.0, 68.0, 0.5, key="comp_3")
-        late_3 = st.slider("Late Submissions % (k)", 0.0, 100.0, 24.0, 0.5, key="late_3")
+        s3_raw = st.text_input("Score (k)", value="46", placeholder="0-100 or blank", key="s3")
+        a3_raw = st.text_input("Attendance % (k)", value="72", placeholder="0-100 or blank", key="a3")
+        c3_raw = st.text_input("Assignment Completion % (k)", value="62", placeholder="0-100 or blank", key="c3")
+        l3_raw = st.text_input("Late Submission % (k)", value="28", placeholder="0-100 or blank", key="l3")
 
-    # Build features using the exact same helper used in training/splitting.
-    features_df = build_features_from_inputs(
-        scores_last3=[score_1, score_2, score_3],
-        attendance_last3=[att_1, att_2, att_3],
-        completion_last3=[comp_1, comp_2, comp_3],
-        late_submission_last3=[late_1, late_2, late_3],
-        grade_level=int(grade_level),
-    )
+    # Parse and validate all 12 inputs (allowing blanks as NaN).
+    raw_fields = [
+        ("Score (k-2)", s1_raw),
+        ("Score (k-1)", s2_raw),
+        ("Score (k)", s3_raw),
+        ("Attendance % (k-2)", a1_raw),
+        ("Attendance % (k-1)", a2_raw),
+        ("Attendance % (k)", a3_raw),
+        ("Assignment Completion % (k-2)", c1_raw),
+        ("Assignment Completion % (k-1)", c2_raw),
+        ("Assignment Completion % (k)", c3_raw),
+        ("Late Submission % (k-2)", l1_raw),
+        ("Late Submission % (k-1)", l2_raw),
+        ("Late Submission % (k)", l3_raw),
+    ]
 
-    feature_cols = list(metadata["feature_columns"])
-    threshold = float(metadata["decision_threshold"])
-    band_cutoffs = dict(metadata["risk_band_cutoffs"])
+    parsed_values: list[float] = []
+    validation_errors: list[str] = []
+    for label, raw_val in raw_fields:
+        num, err = parse_optional_percentage(raw_val, label)
+        if err is not None:
+            validation_errors.append(err)
+        parsed_values.append(num)
 
-    risk_proba = float(model.predict_proba(features_df[feature_cols])[:, 1][0])
-    risk_band = assign_risk_band(risk_proba, band_cutoffs)
-    flagged = risk_proba >= threshold
+    if validation_errors:
+        for err in validation_errors:
+            st.error(err)
+        st.stop()
 
-    explanation = explain_prediction(model, features_df, top_n=3)
+    inputs = {
+        "grade_level": int(grade_level),
+        "scores_last3": parsed_values[0:3],
+        "attendance_last3": parsed_values[3:6],
+        "completion_last3": parsed_values[6:9],
+        "late_submission_last3": parsed_values[9:12],
+    }
+
+    result = predict_risk(inputs, model_bundle=model_bundle)
+
+    if result["missing_input_count"] > 0:
+        st.info(
+            f"Detected **{result['missing_input_count']} blank input(s)**. Missing entries are "
+            "handled automatically inside the scikit-learn Pipeline using training-set medians."
+        )
 
     st.divider()
-    st.subheader("Advisory Risk Assessment")
+    st.subheader("Advisory Prediction Result")
 
     m1, m2, m3 = st.columns(3)
-    m1.metric("Predicted Risk (Score < 50)", f"{risk_proba * 100:.1f}%")
-    m2.metric("Risk Band", risk_band)
+    m1.metric("Risk Probability (Next Score < 50)", f"{result['probability'] * 100:.1f}%")
+    m2.metric("Risk Band", result["risk_band"])
     m3.metric(
-        "Optional Support Alert",
-        "Recommended" if flagged else "Not Flagged",
-        delta=f"Threshold: {threshold * 100:.0f}%",
+        "Support Flag Decision",
+        "Flagged for Optional Support" if result["flagged"] else "Not Flagged",
+        delta=f"Cutoff: {result['decision_threshold'] * 100:.0f}%",
         delta_color="off",
     )
 
+    render_risk_band_badge(result["risk_band"])
+
+    cutoffs = result["risk_band_cutoffs"]
     st.caption(
-        f"Band cutoffs calibrated on validation data: "
-        f"Low (< {band_cutoffs['low_max']:.2f}), "
-        f"Medium ({band_cutoffs['low_max']:.2f} to < {band_cutoffs['medium_max']:.2f}), "
-        f"High (>= {band_cutoffs['medium_max']:.2f})."
+        f"Risk bands calibrated on validation data: "
+        f"Low (< {cutoffs['low_max'] * 100:.0f}%), "
+        f"Medium ({cutoffs['low_max'] * 100:.0f}% to < {cutoffs['medium_max'] * 100:.0f}%), "
+        f"High (>= {cutoffs['medium_max'] * 100:.0f}%)."
     )
 
-    exp_col_1, exp_col_2 = st.columns(2)
-    with exp_col_1:
-        st.markdown("#### Top Factors Increasing Risk")
-        if explanation["increasing_risk"]:
-            for item in explanation["increasing_risk"]:
+    sig_col1, sig_col2 = st.columns(2)
+    with sig_col1:
+        st.markdown("#### Top Signals Increasing Risk")
+        if result["increasing_risk"]:
+            for item in result["increasing_risk"]:
                 st.markdown(f"- {item['explanation']}")
         else:
-            st.write("No features are currently pushing risk above typical median levels.")
+            st.write("No signals are pushing predicted risk above typical median levels.")
 
-    with exp_col_2:
-        st.markdown("#### Top Factors Reducing Risk")
-        if explanation["reducing_risk"]:
-            for item in explanation["reducing_risk"]:
+    with sig_col2:
+        st.markdown("#### Top Signals Reducing Risk")
+        if result["reducing_risk"]:
+            for item in result["reducing_risk"]:
                 st.markdown(f"- {item['explanation']}")
         else:
-            st.write("No protective features are pulling risk below typical median levels.")
+            st.write("No protective signals are pulling predicted risk below typical median levels.")
 
-    st.markdown("#### Suggested Supportive Actions (Optional & Non-Punitive)")
-    for action in suggest_supportive_actions(risk_band, explanation["increasing_risk"]):
-        st.markdown(f"- {action}")
+    st.markdown("#### Human Review Note")
+    st.info(
+        "**Before reaching out:** A teacher or counselor should review context the model cannot see "
+        "(recent illness, family events, partial/ungraded make-up work, or classroom engagement) and "
+        "choose a supportive, non-punitive check-in or tutoring invitation."
+    )
+    st.text_area(
+        "Optional counselor/teacher review notes (kept in browser session only; not saved):",
+        placeholder="Example: Check in after class about missed assignment deadlines and invite to Thursday study group.",
+        key="human_review_note",
+    )
 
-    with st.expander("Inspect Engineered Features Passed to Model"):
-        st.dataframe(features_df.T.rename(columns={0: "value"}), width="stretch")
+    with st.expander("Limitations & uncertainty"):
+        st.markdown(
+            "- **Probabilistic estimate, not a certainty:** A `70%` risk score means roughly `7` out of `10` "
+            "similar historical checkpoints scored below `50`, not that a specific student will definitely fail.\n"
+            "- **False alarms vs. missed students:** Because the threshold (`0.37`) prioritizes catching struggling "
+            "students (**Recall ~90%** on test data), about half of flagged students (**Precision ~46%**) still "
+            "score `>= 50`—which is why flags must only trigger low-cost, optional help.\n"
+            "- **Sudden drops can be missed:** Students with steady past scores who encounter an unexpected difficulty "
+            "before the next exam may not be flagged early.\n"
+            "- **Missing inputs increase uncertainty:** When fields are left blank, the model falls back to "
+            "training medians rather than the student's true recent behavior.\n"
+            "- **Synthetic internship scope:** Trained on a simulated 1,500-student cohort; real school deployment "
+            "would require local calibration, governance review, and ongoing fairness monitoring."
+        )
+
+    with st.expander("Computed features sent to model"):
+        feat_df = pd.DataFrame(
+            {"feature": list(result["computed_features"].keys()), "value": list(result["computed_features"].values())}
+        )
+        st.dataframe(feat_df, width="stretch", hide_index=True)
 
 
-def render_cohort_overview_tab(metadata: dict[str, Any]) -> None:
-    """Render saved test evaluation tables, figures, and global feature importance."""
-    st.subheader("Cohort Evaluation & Model Overview")
+def render_performance_tab() -> None:
+    """Read reports/metrics.json and display test metrics table and confusion matrix."""
+    st.subheader("Model Performance (One-Time Held-Out Test Evaluation)")
+
+    if not METRICS_PATH.exists():
+        st.error(f"`{METRICS_PATH}` not found. Run `python -m src.evaluate` first.")
+        return
+
+    metrics_data = json.loads(METRICS_PATH.read_text(encoding="utf-8"))
+
     st.markdown(
-        f"**Saved Model:** `{metadata.get('model_family')}` | "
-        f"**Decision Threshold (Val F2-tuned):** `{metadata.get('decision_threshold')}` | "
-        f"**Random Seed:** `{metadata.get('seed')}` | "
-        f"**scikit-learn:** `{metadata.get('sklearn_version')}`"
+        f"**Final Model:** `{metrics_data.get('final_model')}` | "
+        f"**Frozen Threshold (from Validation):** `{metrics_data.get('frozen_threshold_from_val')}` | "
+        f"**Test Rows (`k = 7`):** `{metrics_data.get('test_rows')}` | "
+        f"**At-Risk Rate:** `{metrics_data.get('test_at_risk_rate', 0) * 100:.2f}%`"
     )
 
-    if METRICS_TABLE_PATH.exists():
-        st.markdown("#### Held-Out Test Set Metrics Comparison (`test.csv`, Checkpoint `k = 7`)")
-        metrics_df = pd.read_csv(METRICS_TABLE_PATH)
-        st.dataframe(metrics_df, width="stretch", hide_index=True)
-    else:
-        st.info("Run `python -m src.evaluate` to generate `reports/metrics_table.csv`.")
+    st.markdown("#### Test Set Comparison Table (Baselines & Candidate Models)")
+    models_table = pd.DataFrame(metrics_data.get("models_test_metrics", []))
+    st.dataframe(models_table, width="stretch", hide_index=True)
 
-    fig_col_1, fig_col_2 = st.columns(2)
-    cm_path = FIGURES_DIR / "test_confusion_matrix.png"
-    pr_path = FIGURES_DIR / "test_precision_recall_curve.png"
-    comp_path = FIGURES_DIR / "test_model_comparison.png"
-    fi_path = FIGURES_DIR / "feature_importance.png"
+    # Resolve image path relative to repo FIGURES_DIR so it works on both Windows and Linux cloud.
+    cm_fig_path = FIGURES_DIR / "test_confusion_matrix.png"
+    pr_fig_path = FIGURES_DIR / "test_precision_recall_curve.png"
+    comp_fig_path = FIGURES_DIR / "test_model_comparison.png"
 
-    with fig_col_1:
-        if cm_path.exists():
-            st.image(str(cm_path), caption="Final Model Confusion Matrix (Held-Out Test Set)")
+    col_cm, col_pr = st.columns(2)
+    with col_cm:
+        st.markdown("#### Confusion Matrix (Final Model on `test.csv`)")
+        if cm_fig_path.exists():
+            st.image(str(cm_fig_path), caption="Held-out test confusion matrix at threshold 0.37")
         else:
-            st.info("Run `python -m src.evaluate` to generate the confusion matrix figure.")
+            st.info("Confusion matrix figure not found. Run `python -m src.evaluate`.")
 
-    with fig_col_2:
-        if pr_path.exists():
-            st.image(str(pr_path), caption="Precision-Recall Curves & Chosen Threshold")
+    with col_pr:
+        st.markdown("#### Precision-Recall Curve")
+        if pr_fig_path.exists():
+            st.image(str(pr_fig_path), caption="Precision-Recall curves with chosen validation threshold marked")
         else:
-            st.info("Run `python -m src.evaluate` to generate the precision-recall curve figure.")
+            st.info("Precision-Recall curve figure not found. Run `python -m src.evaluate`.")
 
-    fig_col_3, fig_col_4 = st.columns(2)
-    with fig_col_3:
-        if comp_path.exists():
-            st.image(str(comp_path), caption="Baselines vs. Models Comparison on Test Set")
-        else:
-            st.info("Run `python -m src.evaluate` to generate the model comparison chart.")
+    if comp_fig_path.exists():
+        st.markdown("#### Model Comparison Chart")
+        st.image(str(comp_fig_path), caption="Recall, Precision, F1, and PR-AUC across baselines and tuned models")
 
-    with fig_col_4:
-        if fi_path.exists():
-            st.image(str(fi_path), caption="Global Permutation Importance (Validation PR-AUC Drop)")
-        else:
-            st.info("Run `python -m src.explain` to generate the feature importance figure.")
-
-    if BIAS_AUDIT_PATH.exists():
-        st.markdown("#### Post-Hoc Subgroup Audit (`gender` Never Used as a Model Feature)")
-        audit_df = pd.read_csv(BIAS_AUDIT_PATH)
-        st.dataframe(audit_df, width="stretch", hide_index=True)
+    if "grade_level_breakdown" in metrics_data:
+        st.markdown("#### Performance Breakdown by Grade Level")
+        st.dataframe(pd.DataFrame(metrics_data["grade_level_breakdown"]), width="stretch", hide_index=True)
 
 
 def main() -> None:
-    """Configure page layout, render advisory notice, and mount the two app tabs."""
-    st.set_page_config(
-        page_title="Student Support Advisory Tool",
-        layout="wide",
-    )
+    """Set page layout, show required advisory banner, and mount app tabs."""
+    st.set_page_config(page_title="Student Support Advisory Tool", layout="wide")
 
     st.title("Student Performance & Early Support Advisory Tool")
     st.warning(
-        "**Advisory Only:** Predictions estimate whether a student may benefit from optional "
-        "academic support (such as tutoring, check-ins, or study resources) on the next assessment. "
-        "This tool must **NEVER** be used for automated punishment, grading penalties, academic "
-        "probation, or admission decisions. Protected attributes (such as gender) are never used as inputs."
+        "**Advisory tool only. Not for grading, punishment or admission decisions. "
+        "A teacher/counselor must review every result.**"
     )
 
     try:
-        model, metadata = get_model_and_metadata()
+        model_bundle = get_cached_model()
     except FileNotFoundError as exc:
-        st.error(f"{exc}")
+        st.error(str(exc))
         st.stop()
 
-    tab_single, tab_overview = st.tabs(["Single Student Check", "Cohort & Model Overview"])
+    tab_predict, tab_perf = st.tabs(["Predict Student Risk", "Model performance"])
 
-    with tab_single:
-        render_single_student_tab(model, metadata)
+    with tab_predict:
+        render_prediction_tab(model_bundle)
 
-    with tab_overview:
-        render_cohort_overview_tab(metadata)
+    with tab_perf:
+        render_performance_tab()
 
 
 if __name__ == "__main__":
