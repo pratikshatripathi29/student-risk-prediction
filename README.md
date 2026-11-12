@@ -9,8 +9,7 @@ An end-to-end machine learning early-warning system that estimates whether a stu
 
 ## Live Demo
 
-- **Streamlit App (Placeholder):** [https://student-risk-prediction-pt.streamlit.app]() *(replace with your deployed Streamlit Community Cloud URL once published)*
-
+- **Streamlit App (Placeholder):** https://student-risk-prediction-pt.streamlit.app
 To preview locally, run `streamlit run app/streamlit_app.py` from the repository root after following the setup steps below.
 
 ---
